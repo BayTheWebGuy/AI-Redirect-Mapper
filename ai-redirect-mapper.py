@@ -1,5 +1,3 @@
-!pip install chardet
-
 import base64
 import chardet
 import numpy as np
