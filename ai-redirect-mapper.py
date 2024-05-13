@@ -914,8 +914,6 @@ def main():
     """
     setup_streamlit_interface()
 
-    openai.api_key('sk-proj-wxCaOb5ulQFIuo9nW8iFT3BlbkFJnHGYeiN3r0TxvagSzude')
-
     # Advanced settings expander for model selection
     with st.expander("Advanced Settings"):
         model_options = ['TF-IDF', 'Edit Distance', 'RapidFuzz', 'SBERT & FAISS', 'OpenAI & FAISS']
