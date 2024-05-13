@@ -393,7 +393,7 @@ def match_columns_and_compute_scores(model, df_live, df_staging, matching_column
         else:
             st.warning(f"The column '{col}' does not exist in both the live and staging data.")
 
-         else:
+        else:
             for col in matching_columns:
                 if col in df_live.columns and col in df_staging.columns:
                     live_list = df_live[col].fillna('').tolist()
