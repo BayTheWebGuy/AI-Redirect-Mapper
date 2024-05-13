@@ -14,8 +14,6 @@ from sentence_transformers import SentenceTransformer
 import faiss
 import openai
 
-openai.api_key('sk-proj-wxCaOb5ulQFIuo9nW8iFT3BlbkFJnHGYeiN3r0TxvagSzude')
-
 # BaileyDoesSEO | https://BaileyDoesSEO.com | 18th May 2024
 # Inspired by LeeFootSEO | https://leefoot.co.uk | 10th December 2023
 
@@ -915,6 +913,8 @@ def main():
     processes data matching, and displays results.
     """
     setup_streamlit_interface()
+
+    openai.api_key('sk-proj-wxCaOb5ulQFIuo9nW8iFT3BlbkFJnHGYeiN3r0TxvagSzude')
 
     # Advanced settings expander for model selection
     with st.expander("Advanced Settings"):
