@@ -320,13 +320,23 @@ def setup_matching_model(selected_model):
         model = PolyFuzz(TFIDF())
     return model
 
-def get_openai_embeddings(text_list, model="text-embedding-3-large"):
-    response = openai.Embedding.create(
-        input=text_list,
-        model=model
-    )
-    embeddings = np.array([item['embedding'] for item in response['data']])
-    return embeddings
+def get_openai_embeddings(text_list, model="text-embedding-3-small"):
+    try:
+        # Create the input as a list of dictionaries with "text" key
+        input_data = [{"text": text} for text in text_list]
+        
+        # Call OpenAI API for embeddings
+        response = openai.Embedding.create(
+            input=input_data,
+            model=model
+        )
+        
+        # Extract embeddings
+        embeddings = [embedding['embedding'] for embedding in response['data']]
+        return embeddings
+    except Exception as e:
+        print(f"Error while fetching embeddings: {e}")
+        return []
 
 def get_sbert_embeddings(text_list):
     sbert_model = SentenceTransformer('all-MiniLM-L6-v2')
