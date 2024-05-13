@@ -12,6 +12,9 @@ import xlsxwriter
 
 from sentence-transformers import SentenceTransformer
 import faiss
+import openai
+
+openai.api_key('sk-proj-wxCaOb5ulQFIuo9nW8iFT3BlbkFJnHGYeiN3r0TxvagSzude')
 
 # BaileyDoesSEO | https://BaileyDoesSEO.com | 18th May 2024
 # Inspired by LeeFootSEO | https://leefoot.co.uk | 10th December 2023
@@ -290,6 +293,8 @@ def initialise_matching_model(selected_model="TF-IDF"):
         model = RapidFuzz()
     elif selected_model == "SBERT & FAISS":
         model = "SBERT & FAISS"  # We'll handle this model differently
+    elif selected_model == "OpenAI & FAISS":
+        model = "OpenAI & FAISS"  # We'll handle this model differently
     else:
         from polyfuzz.models import TFIDF
         model = TFIDF(min_similarity=0)
@@ -311,16 +316,32 @@ def setup_matching_model(selected_model):
         model = PolyFuzz(RapidFuzz())
     elif selected_model == "SBERT & FAISS":
         model = "SBERT & FAISS"  # We'll handle this model differently
+    elif selected_model == "OpenAI & FAISS":
+        model = "OpenAI & FAISS"  # We'll handle this model differently
     else:
         model = PolyFuzz(TFIDF())
     return model
 
+def get_openai_embeddings(text_list, model="text-embedding-3-large"):
+    response = openai.Embedding.create(
+        input=text_list,
+        model=model
+    )
+    embeddings = np.array([item['embedding'] for item in response['data']])
+    return embeddings
+
+def get_sbert_embeddings(text_list):
+    sbert_model = SentenceTransformer('all-MiniLM-L6-v2')
+    embeddings = sbert_model.encode(text_list, show_progress_bar=False)
+    return embeddings
+
 def match_columns_and_compute_scores(model, df_live, df_staging, matching_columns):
     """
-    Matches columns between two DataFrames (df_live and df_staging) and computes similarity scores.
+    Matches columns between two DataFrames (df_live and df_staging) and computes similarity scores using either
+    SBERT & FAISS or OpenAI & FAISS based on the model selected.
 
     Args:
-        model: The matching model to use for matching (e.g., PolyFuzz).
+        model: The matching model to use for matching.
         df_live (pd.DataFrame): The DataFrame containing live data.
         df_staging (pd.DataFrame): The DataFrame containing staging data.
         matching_columns (list): List of column names to match between DataFrames.
@@ -329,50 +350,40 @@ def match_columns_and_compute_scores(model, df_live, df_staging, matching_column
         dict: A dictionary containing match scores for each column.
     """
     matches_scores = {}
-    if model == "SBERT & FAISS":
-        # Use SBERT model for embeddings
-        sbert_model = SentenceTransformer('all-MiniLM-L6-v2')
-
-        for col in matching_columns:
-            if col in df_live.columns and col in df_staging.columns:
-                live_list = df_live[col].fillna('').tolist()
-                staging_list = df_staging[col].fillna('').tolist()
-                
-                # Convert text to embeddings
-                live_embeddings = sbert_model.encode(live_list, show_progress_bar=False)
-                staging_embeddings = sbert_model.encode(staging_list, show_progress_bar=False)
-                
-                # Setup FAISS index
-                dimension = live_embeddings.shape[1]
-                faiss_index = faiss.IndexFlatL2(dimension)
-                faiss_index.add(np.array(staging_embeddings).astype('float32'))
-                
-                # Search for nearest neighbors
-                D, I = faiss_index.search(np.array(live_embeddings).astype('float32'), k=1)
-                
-                # Calculate similarity scores
-                similarity_scores = 1 - (D.flatten() / np.max(D))
-                
-                # Store the results
-                matches = pd.DataFrame({
-                    'From': live_list,
-                    'To': [staging_list[i] for i in I.flatten()],
-                    'Similarity': similarity_scores
-                })
-                matches_scores[col] = matches
+    for col in matching_columns:
+        if col in df_live.columns and col in df_staging.columns:
+            live_list = df_live[col].fillna('').tolist()
+            staging_list = df_staging[col].fillna('').tolist()
+            
+            if model == "SBERT & FAISS":
+                live_embeddings = get_sbert_embeddings(live_list)
+                staging_embeddings = get_sbert_embeddings(staging_list)
+            elif model == "OpenAI & FAISS":
+                live_embeddings = get_openai_embeddings(live_list)
+                staging_embeddings = get_openai_embeddings(staging_list)
             else:
-                st.warning(f"The column '{col}' does not exist in both the live and staging data.")
-    else:
-        for col in matching_columns:
-            if col in df_live.columns and col in df_staging.columns:
-                live_list = df_live[col].fillna('').tolist()
-                staging_list = df_staging[col].fillna('').tolist()
+                continue  # Skip to next iteration if model type doesn't require embeddings
 
-                model.match(live_list, staging_list)
-                matches = model.get_matches()
-                matches_scores[col] = matches
-            else:
-                st.warning(f"The column '{col}' does not exist in both the live and staging data.")
+            # Setup FAISS index for nearest neighbor search
+            dimension = live_embeddings.shape[1]
+            faiss_index = faiss.IndexFlatL2(dimension)
+            faiss_index.add(np.array(staging_embeddings).astype('float32'))
+            
+            # Search for nearest neighbors
+            D, I = faiss_index.search(np.array(live_embeddings).astype('float32'), k=1)
+            
+            # Calculate similarity scores
+            similarity_scores = 1 - (D.flatten() / np.max(D))
+            
+            # Store the results
+            matches = pd.DataFrame({
+                'From': live_list,
+                'To': [staging_list[i] for i in I.flatten()],
+                'Similarity': similarity_scores
+            })
+            matches_scores[col] = matches
+        else:
+            st.warning(f"The column '{col}' does not exist in both the live and staging data.")
 
     return matches_scores
 
@@ -907,7 +918,7 @@ def main():
 
     # Advanced settings expander for model selection
     with st.expander("Advanced Settings"):
-        model_options = ['TF-IDF', 'Edit Distance', 'RapidFuzz', 'SBERT & FAISS']
+        model_options = ['TF-IDF', 'Edit Distance', 'RapidFuzz', 'SBERT & FAISS', 'OpenAI & FAISS']
         selected_model = st.selectbox("Select Matching Model", model_options)
 
         if selected_model == "TF-IDF":
