@@ -285,11 +285,12 @@ def initialise_matching_model(selected_model="TF-IDF"):
     elif selected_model == "RapidFuzz":
         from polyfuzz.models import RapidFuzz
         model = RapidFuzz()
-    else:  # Default to TF-IDF
+    elif selected_model == "SBERT & FAISS":
+        model = "SBERT & FAISS"  # We'll handle this model differently
+    else:
         from polyfuzz.models import TFIDF
         model = TFIDF(min_similarity=0)
     return model
-
 
 def setup_matching_model(selected_model):
     """
@@ -305,10 +306,11 @@ def setup_matching_model(selected_model):
         model = PolyFuzz(EditDistance())
     elif selected_model == "RapidFuzz":
         model = PolyFuzz(RapidFuzz())
-    else:  # Default to TF-IDF
+    elif selected_model == "SBERT & FAISS":
+        model = "SBERT & FAISS"  # We'll handle this model differently
+    else:
         model = PolyFuzz(TFIDF())
     return model
-
 
 def match_columns_and_compute_scores(model, df_live, df_staging, matching_columns):
     """
@@ -324,26 +326,55 @@ def match_columns_and_compute_scores(model, df_live, df_staging, matching_column
         dict: A dictionary containing match scores for each column.
     """
     matches_scores = {}
-    for col in matching_columns:
-        # Check if the column exists in both dataframes
-        if col in df_live.columns and col in df_staging.columns:
-            # Ensure the data type is appropriate (i.e., Pandas Series)
-            if isinstance(df_live[col], pd.Series) and isinstance(df_staging[col], pd.Series):
+    if model == "SBERT & FAISS":
+        # Use SBERT model for embeddings
+        from sentence_transformers import SentenceTransformer
+        import faiss
+        
+        sbert_model = SentenceTransformer('all-MiniLM-L6-v2')
+
+        for col in matching_columns:
+            if col in df_live.columns and col in df_staging.columns:
+                live_list = df_live[col].fillna('').tolist()
+                staging_list = df_staging[col].fillna('').tolist()
+                
+                # Convert text to embeddings
+                live_embeddings = sbert_model.encode(live_list, show_progress_bar=False)
+                staging_embeddings = sbert_model.encode(staging_list, show_progress_bar=False)
+                
+                # Setup FAISS index
+                dimension = live_embeddings.shape[1]
+                faiss_index = faiss.IndexFlatL2(dimension)
+                faiss_index.add(np.array(staging_embeddings).astype('float32'))
+                
+                # Search for nearest neighbors
+                D, I = faiss_index.search(np.array(live_embeddings).astype('float32'), k=1)
+                
+                # Calculate similarity scores
+                similarity_scores = 1 - (D.flatten() / np.max(D))
+                
+                # Store the results
+                matches = pd.DataFrame({
+                    'From': live_list,
+                    'To': [staging_list[i] for i in I.flatten()],
+                    'Similarity': similarity_scores
+                })
+                matches_scores[col] = matches
+            else:
+                st.warning(f"The column '{col}' does not exist in both the live and staging data.")
+    else:
+        for col in matching_columns:
+            if col in df_live.columns and col in df_staging.columns:
                 live_list = df_live[col].fillna('').tolist()
                 staging_list = df_staging[col].fillna('').tolist()
 
-                # Here's the matching logic:
                 model.match(live_list, staging_list)
                 matches = model.get_matches()
                 matches_scores[col] = matches
-
             else:
-                st.warning(f"The column '{col}' in either the live or staging data is not a valid series.")
-        else:
-            st.warning(f"The column '{col}' does not exist in both the live and staging data.")
+                st.warning(f"The column '{col}' does not exist in both the live and staging data.")
 
     return matches_scores
-
 
 def identify_best_matching_url(row, matches_scores, matching_columns, df_staging):
     """
