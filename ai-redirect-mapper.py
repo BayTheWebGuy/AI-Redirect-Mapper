@@ -907,7 +907,7 @@ def main():
 
     # Advanced settings expander for model selection
     with st.expander("Advanced Settings"):
-        model_options = ['TF-IDF', 'Edit Distance', 'RapidFuzz']
+        model_options = ['TF-IDF', 'Edit Distance', 'RapidFuzz', 'SBERT & FAISS']
         selected_model = st.selectbox("Select Matching Model", model_options)
 
         if selected_model == "TF-IDF":
