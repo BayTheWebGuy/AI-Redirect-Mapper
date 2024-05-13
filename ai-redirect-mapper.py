@@ -343,69 +343,70 @@ def get_sbert_embeddings(text_list):
     embeddings = sbert_model.encode(text_list, show_progress_bar=False)
     return embeddings
 
+import faiss
+import numpy as np
+import pandas as pd
+
+def get_openai_embeddings(text_list, model="text-embedding-3-small"):
+    try:
+        input_data = [{"text": text} for text in text_list]
+        response = openai.Embedding.create(input=input_data, model=model)
+        embeddings = [embedding['embedding'] for embedding in response['data']]
+        return embeddings
+    except Exception as e:
+        print(f"Error while fetching embeddings: {e}")
+        return []
+
+def get_sbert_embeddings(text_list):
+    from sentence_transformers import SentenceTransformer
+    sbert_model = SentenceTransformer('all-MiniLM-L6-v2')
+    embeddings = sbert_model.encode(text_list, show_progress_bar=False)
+    return embeddings
+
 def match_columns_and_compute_scores(model, df_live, df_staging, matching_columns):
-    """
-    Matches columns between two DataFrames (df_live and df_staging) and computes similarity scores using either
-    SBERT & FAISS or OpenAI & FAISS based on the model selected.
-
-    Args:
-        model: The matching model to use for matching.
-        df_live (pd.DataFrame): The DataFrame containing live data.
-        df_staging (pd.DataFrame): The DataFrame containing staging data.
-        matching_columns (list): List of column names to match between DataFrames.
-
-    Returns:
-        dict: A dictionary containing match scores for each column.
-    """
     matches_scores = {}
     for col in matching_columns:
         if col in df_live.columns and col in df_staging.columns:
             live_list = df_live[col].fillna('').tolist()
             staging_list = df_staging[col].fillna('').tolist()
-            
-            if model == "SBERT & FAISS":
-                live_embeddings = get_sbert_embeddings(live_list)
-                staging_embeddings = get_sbert_embeddings(staging_list)
-            elif model == "OpenAI & FAISS":
-                live_embeddings = get_openai_embeddings(live_list)
-                staging_embeddings = get_openai_embeddings(staging_list)
+
+            if model == "SBERT & FAISS" or model == "OpenAI & FAISS":
+                # Get embeddings based on the model
+                if model == "SBERT & FAISS":
+                    live_embeddings = get_sbert_embeddings(live_list)
+                    staging_embeddings = get_sbert_embeddings(staging_list)
+                elif model == "OpenAI & FAISS":
+                    live_embeddings = get_openai_embeddings(live_list)
+                    staging_embeddings = get_openai_embeddings(staging_list)
+                
+                # Setup FAISS index for nearest neighbor search
+                dimension = len(live_embeddings[0])  # Assuming embedding list is not empty and all embeddings have the same dimension
+                faiss_index = faiss.IndexFlatL2(dimension)
+                faiss_index.add(np.array(staging_embeddings).astype('float32'))
+                
+                # Search for nearest neighbors
+                D, I = faiss_index.search(np.array(live_embeddings).astype('float32'), k=1)
+                
+                # Calculate similarity scores
+                similarity_scores = 1 - (D.flatten() / np.max(D))
+                
+                # Store the results
+                matches = pd.DataFrame({
+                    'From': live_list,
+                    'To': [staging_list[i] for i in I.flatten()],
+                    'Similarity': similarity_scores
+                })
+                matches_scores[col] = matches
             else:
-                continue  # Skip to next iteration if model type doesn't require embeddings
-
-            # Setup FAISS index for nearest neighbor search
-            dimension = live_embeddings.shape[1]
-            faiss_index = faiss.IndexFlatL2(dimension)
-            faiss_index.add(np.array(staging_embeddings).astype('float32'))
-            
-            # Search for nearest neighbors
-            D, I = faiss_index.search(np.array(live_embeddings).astype('float32'), k=1)
-            
-            # Calculate similarity scores
-            similarity_scores = 1 - (D.flatten() / np.max(D))
-            
-            # Store the results
-            matches = pd.DataFrame({
-                'From': live_list,
-                'To': [staging_list[i] for i in I.flatten()],
-                'Similarity': similarity_scores
-            })
-            matches_scores[col] = matches
+                # Fallback to a generic matching model
+                model.match(live_list, staging_list)
+                matches = model.get_matches()
+                matches_scores[col] = matches
         else:
-            st.warning(f"The column '{col}' does not exist in both the live and staging data.")
-
-else:
-    for col in matching_columns:
-        if col in df_live.columns and col in df_staging.columns:
-            live_list = df_live[col].fillna('').tolist()
-            staging_list = df_staging[col].fillna('').tolist()
-
-            model.match(live_list, staging_list)
-            matches = model.get_matches()
-            matches_scores[col] = matches
-        else:
-            st.warning(f"The column '{col}' does not exist in both the live and staging data.")
+            print(f"The column '{col}' does not exist in both the live and staging data.")
 
     return matches_scores
+
 
 def identify_best_matching_url(row, matches_scores, matching_columns, df_staging):
     """
