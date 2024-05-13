@@ -10,7 +10,7 @@ from polyfuzz.models import TFIDF, EditDistance, RapidFuzz
 import plotly.graph_objects as go
 import xlsxwriter
 
-from sentence_transformers import SentenceTransformer
+from sentence-transformers import SentenceTransformer
 import faiss
 
 # BaileyDoesSEO | https://BaileyDoesSEO.com | 18th May 2024
