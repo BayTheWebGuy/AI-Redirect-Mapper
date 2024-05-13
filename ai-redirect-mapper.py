@@ -10,6 +10,9 @@ from polyfuzz.models import TFIDF, EditDistance, RapidFuzz
 import plotly.graph_objects as go
 import xlsxwriter
 
+from sentence_transformers import SentenceTransformer
+import faiss
+
 # BaileyDoesSEO | https://BaileyDoesSEO.com | 18th May 2024
 # Inspired by LeeFootSEO | https://leefoot.co.uk | 10th December 2023
 
@@ -328,9 +331,6 @@ def match_columns_and_compute_scores(model, df_live, df_staging, matching_column
     matches_scores = {}
     if model == "SBERT & FAISS":
         # Use SBERT model for embeddings
-        from sentence_transformers import SentenceTransformer
-        import faiss
-        
         sbert_model = SentenceTransformer('all-MiniLM-L6-v2')
 
         for col in matching_columns:
