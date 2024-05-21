@@ -3,16 +3,16 @@ import chardet
 import numpy as np
 import streamlit as st
 import pandas as pd
-import matplotlib.pyplot as plt
+# import matplotlib.pyplot as plt (REMOVED)
 
 from polyfuzz import PolyFuzz
 from polyfuzz.models import TFIDF, EditDistance, RapidFuzz
-import plotly.graph_objects as go
+# import plotly.graph_objects as go (REMOVED)
 import xlsxwriter
 
 from sentence_transformers import SentenceTransformer
 import faiss
-import openai
+# import openai (REMOVED)
 
 # BaileyDoesSEO | https://BaileyDoesSEO.com | 18th May 2024
 # Inspired by LeeFootSEO | https://leefoot.co.uk | 10th December 2023
@@ -291,8 +291,8 @@ def initialise_matching_model(selected_model="TF-IDF"):
         model = RapidFuzz()
     elif selected_model == "SBERT & FAISS":
         model = "SBERT & FAISS"  # We'll handle this model differently
-    elif selected_model == "OpenAI & FAISS":
-        model = "OpenAI & FAISS"  # We'll handle this model differently
+#    elif selected_model == "OpenAI & FAISS":
+#        model = "OpenAI & FAISS"  # We'll handle this model differently
     else:
         from polyfuzz.models import TFIDF
         model = TFIDF(min_similarity=0)
@@ -657,7 +657,7 @@ def process_column_matches_and_scores(model, df_live, df_staging, matching_colum
 
 
 # Data Visualization and Reporting -------------------------------------------------------------------------------------
-
+''' REMOVED
 def plot_median_score_histogram(df_final, col):
     """
     Plots a histogram of median match scores.
@@ -679,7 +679,7 @@ def plot_median_score_histogram(df_final, col):
         ax.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, _: int(x)))
         plt.tight_layout()
         st.pyplot(plt)
-
+'''
 
 def display_final_results_and_download_link(df_final, filename):
     """
@@ -693,7 +693,7 @@ def display_final_results_and_download_link(df_final, filename):
     display_median_score_brackets_chart(df_final)
     st.balloons()
 
-
+''' REMOVED
 def display_median_similarity_indicator_chart(df_final, col):
     """
     Displays a chart showing the median similarity indicator.
@@ -726,8 +726,8 @@ def display_median_similarity_indicator_chart(df_final, col):
         st.plotly_chart(fig)
 
     st.session_state['previous_score'] = median_similarity_score
-
-
+'''
+''' REMOVED
 def display_median_score_brackets_chart(df_final):
     """
     Displays a chart of the median score brackets.
@@ -741,7 +741,7 @@ def display_median_score_brackets_chart(df_final):
     col1, col2 = st.columns(2)
     plot_median_score_histogram(df_bracketed, col1)
     display_median_similarity_indicator_chart(df_final, col2)
-
+'''
 
 # Excel File Operations ------------------------------------------------------------------------------------------------
 
@@ -939,7 +939,8 @@ def main():
 
     # Advanced settings expander for model selection
     with st.expander("Advanced Settings"):
-        model_options = ['TF-IDF', 'Edit Distance', 'RapidFuzz', 'SBERT & FAISS', 'OpenAI & FAISS']
+        # model_options = ['TF-IDF', 'Edit Distance', 'RapidFuzz', 'SBERT & FAISS', 'OpenAI & FAISS']
+        model_options = ['TF-IDF', 'Edit Distance', 'RapidFuzz', 'SBERT & FAISS']
         selected_model = st.selectbox("Select Matching Model", model_options)
 
         if selected_model == "TF-IDF":
