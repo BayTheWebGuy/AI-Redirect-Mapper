@@ -3,4 +3,4 @@ polyfuzz
 xlsxwriter==3.1.9
 faiss-cpu
 sentence-transformers
-matplotlib
+matplotlib==3.8.3
