@@ -657,7 +657,7 @@ def process_column_matches_and_scores(model, df_live, df_staging, matching_colum
 
 
 # Data Visualization and Reporting -------------------------------------------------------------------------------------
-''' # REMOVED
+_ = ''' # REMOVED
 def plot_median_score_histogram(df_final, col):
     """
     Plots a histogram of median match scores.
@@ -693,7 +693,7 @@ def display_final_results_and_download_link(df_final, filename):
     # display_median_score_brackets_chart(df_final)
     st.balloons()
 
-''' # REMOVED
+_ = ''' # REMOVED
 def display_median_similarity_indicator_chart(df_final, col):
     """
     Displays a chart showing the median similarity indicator.
@@ -727,7 +727,7 @@ def display_median_similarity_indicator_chart(df_final, col):
 
     st.session_state['previous_score'] = median_similarity_score
 '''
-''' # REMOVED
+_ = ''' # REMOVED
 def display_median_score_brackets_chart(df_final):
     """
     Displays a chart of the median score brackets.
