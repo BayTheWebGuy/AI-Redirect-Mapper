@@ -958,7 +958,7 @@ def main():
         selected_model = st.selectbox("Select Matching Model", model_options)
 
         if selected_model == "TF-IDF":
-            st.write("Use TF-IDF for comprehensive text analysis, suitable for most use cases.")
+            st.write("Use TF-IDF for comprehensive text analysis, suitable for high numbers of URLs (10K+) where SBERT may run into resourcing issues.")
         elif selected_model == "Edit Distance":
             st.write("Edit Distance is useful for matching based on character-level differences, such as small text variations.")
         elif selected_model == "RapidFuzz":
