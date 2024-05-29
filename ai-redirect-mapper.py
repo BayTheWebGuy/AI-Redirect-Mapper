@@ -402,25 +402,29 @@ def match_columns_and_compute_scores(model, df_live, df_staging, matching_column
                 faiss_index = faiss.IndexFlatL2(dimension)
                 faiss_index.add(np.array(staging_embeddings).astype('float32'))
                 
+                # Initialize empty DataFrame for matches
+                matches = pd.DataFrame(columns=['From', 'To', 'Similarity'])
+                
                 # Search for nearest neighbors
                 for i, live_embedding in enumerate(live_embeddings):
                     D, I = faiss_index.search(np.array([live_embedding]).astype('float32'), k=1)
                     similarity_score = 1 - (D.flatten()[0] / np.max(D))
                     
-                    # Store the result
-                    match = {
-                        'From': live_list[i],
-                        'To': staging_list[I.flatten()[0]],
-                        'Similarity': similarity_score
-                    }
-                    if col in matches_scores:
-                        matches_scores[col] = matches_scores[col].concat(match, ignore_index=True)
-                    else:
-                        matches_scores[col] = pd.DataFrame([match])
-
+                    # Create match result
+                    match = pd.DataFrame({
+                        'From': [live_list[i]],
+                        'To': [staging_list[I.flatten()[0]]],
+                        'Similarity': [similarity_score]
+                    })
+                    
+                    # Append match to matches DataFrame using concat
+                    matches = pd.concat([matches, match], ignore_index=True)
+                    
                     # Update progress bar based on rows processed
                     processed_rows += 1
                     progress_bar.progress(processed_rows / total_rows)
+                
+                matches_scores[col] = matches
             else:
                 # Fallback to a generic matching model
                 model.match(live_list, staging_list)
