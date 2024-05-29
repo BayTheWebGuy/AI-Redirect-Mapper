@@ -403,30 +403,36 @@ def match_columns_and_compute_scores(model, df_live, df_staging, matching_column
                 faiss_index.add(np.array(staging_embeddings).astype('float32'))
                 
                 # Search for nearest neighbors
-                D, I = faiss_index.search(np.array(live_embeddings).astype('float32'), k=1)
-                
-                # Calculate similarity scores
-                similarity_scores = 1 - (D.flatten() / np.max(D))
-                
-                # Store the results
-                matches = pd.DataFrame({
-                    'From': live_list,
-                    'To': [staging_list[i] for i in I.flatten()],
-                    'Similarity': similarity_scores
-                })
-                matches_scores[col] = matches
+                for i, live_embedding in enumerate(live_embeddings):
+                    D, I = faiss_index.search(np.array([live_embedding]).astype('float32'), k=1)
+                    similarity_score = 1 - (D.flatten()[0] / np.max(D))
+                    
+                    # Store the result
+                    match = {
+                        'From': live_list[i],
+                        'To': staging_list[I.flatten()[0]],
+                        'Similarity': similarity_score
+                    }
+                    if col in matches_scores:
+                        matches_scores[col] = matches_scores[col].append(match, ignore_index=True)
+                    else:
+                        matches_scores[col] = pd.DataFrame([match])
+
+                    # Update progress bar based on rows processed
+                    processed_rows += 1
+                    progress_bar.progress(processed_rows / total_rows)
             else:
                 # Fallback to a generic matching model
                 model.match(live_list, staging_list)
                 matches = model.get_matches()
                 matches_scores[col] = matches
 
-            # Update progress bar based on rows processed
-            processed_rows += len(live_list)
-            progress_bar.progress(processed_rows / total_rows)
+                # Update progress bar based on rows processed
+                processed_rows += len(live_list)
+                progress_bar.progress(processed_rows / total_rows)
         else:
             print(f"The column '{col}' does not exist in both the live and staging data.")
-    
+
     return matches_scores
 
 
