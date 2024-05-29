@@ -954,16 +954,18 @@ def main():
     # Advanced settings expander for model selection
     with st.expander("Advanced Settings"):
         # model_options = ['TF-IDF', 'Edit Distance', 'RapidFuzz', 'SBERT & FAISS', 'OpenAI & FAISS']
-        model_options = ['TF-IDF', 'SBERT & FAISS']
+        model_options = ['SBERT & FAISS', 'TF-IDF']
         selected_model = st.selectbox("Select Matching Model", model_options)
 
         if selected_model == "TF-IDF":
             st.write("Use TF-IDF for comprehensive text analysis, suitable for most use cases.")
         elif selected_model == "Edit Distance":
-            st.write(
-                "Edit Distance is useful for matching based on character-level differences, such as small text variations.")
+            st.write("Edit Distance is useful for matching based on character-level differences, such as small text variations.")
         elif selected_model == "RapidFuzz":
             st.write("RapidFuzz is efficient for large datasets, offering fast and approximate string matching.")
+        elif selected_model == "SBERT & FAISS":
+            st.write("Use SBERT for semantic matching of URLs, achieving an extremely high success rate in comparison with any fuzzy matching solutions / TF-IDF.")
+            st.write("(Limit input to 1,000 URLs to prevent crashing)")
 
     file_live, file_staging = create_file_uploader_widgets()
     if file_live and file_staging:
