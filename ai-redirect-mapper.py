@@ -25,15 +25,26 @@ def setup_streamlit_interface():
     Sets up the Streamlit interface for the Automatic Website Migration Tool.
     Configures the page layout, title, and adds creator information and instructions.
     """
-    st.set_page_config(page_title="Automatic Website Migration Tool | BaileyDoesSEO.com", layout="wide")
+    # st.set_page_config(page_title="Automatic Website Migration Tool | BaileyDoesSEO.com", layout="wide")
+    st.set_page_config(page_title="Automatic Website Migration Tool", layout="wide")
     st.title("Automatic Website Migration Tool")
     st.markdown("### Effortlessly migrate your website data")
 
+    _ = '''
     st.markdown(
         """
         <p style="font-style: italic;">
             Created by <a href="https://BaileyDoesSEO.com" target="_blank">BaileyDoesSEO</a> |
             <a href="https://BaileyDoesSEO.com/tools" target="_blank">More Apps & Scripts on my Website</a>
+        </p>
+        """,
+        unsafe_allow_html=True
+    )
+    '''
+    st.markdown(
+        """
+        <p style="font-style: italic;">
+            Created by BaileyDoesSEO
         </p>
         """,
         unsafe_allow_html=True
