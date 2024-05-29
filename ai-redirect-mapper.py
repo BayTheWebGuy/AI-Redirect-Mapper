@@ -374,11 +374,15 @@ def get_openai_embeddings(text_list, model="text-embedding-3-small"):
 def get_sbert_embeddings(text_list):
     from sentence_transformers import SentenceTransformer
     sbert_model = SentenceTransformer('all-MiniLM-L6-v2')
-    embeddings = sbert_model.encode(text_list, show_progress_bar=False)
+    embeddings = sbert_model.encode(text_list, show_progress_bar=True)
     return embeddings
 
 def match_columns_and_compute_scores(model, df_live, df_staging, matching_columns):
     matches_scores = {}
+    total_rows = sum(len(df_live[col].dropna()) for col in matching_columns if col in df_live.columns and col in df_staging.columns)
+    progress_bar = st.progress(0)
+    processed_rows = 0
+
     for col in matching_columns:
         if col in df_live.columns and col in df_staging.columns:
             live_list = df_live[col].fillna('').tolist()
@@ -416,9 +420,13 @@ def match_columns_and_compute_scores(model, df_live, df_staging, matching_column
                 model.match(live_list, staging_list)
                 matches = model.get_matches()
                 matches_scores[col] = matches
+
+            # Update progress bar based on rows processed
+            processed_rows += len(live_list)
+            progress_bar.progress(processed_rows / total_rows)
         else:
             print(f"The column '{col}' does not exist in both the live and staging data.")
-
+    
     return matches_scores
 
 
