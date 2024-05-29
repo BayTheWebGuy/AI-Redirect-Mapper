@@ -3,11 +3,11 @@ import chardet
 import numpy as np
 import streamlit as st
 import pandas as pd
-# import matplotlib.pyplot as plt (REMOVED)
+import matplotlib.pyplot as plt #REMOVE
 
 from polyfuzz import PolyFuzz
 from polyfuzz.models import TFIDF, EditDistance, RapidFuzz
-# import plotly.graph_objects as go (REMOVED)
+import plotly.graph_objects as go #REMOVE
 import xlsxwriter
 
 from sentence_transformers import SentenceTransformer
