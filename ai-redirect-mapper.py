@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt #REMOVE
 
 from polyfuzz import PolyFuzz
 from polyfuzz.models import TFIDF, EditDistance, RapidFuzz
-# import plotly.graph_objects as go #REMOVE
+import plotly.graph_objects as go #REMOVE
 import xlsxwriter
 
 from sentence_transformers import SentenceTransformer
