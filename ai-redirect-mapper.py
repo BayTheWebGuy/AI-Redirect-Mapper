@@ -414,7 +414,7 @@ def match_columns_and_compute_scores(model, df_live, df_staging, matching_column
                         'Similarity': similarity_score
                     }
                     if col in matches_scores:
-                        matches_scores[col] = matches_scores[col].append(match, ignore_index=True)
+                        matches_scores[col] = matches_scores[col].concat(match, ignore_index=True)
                     else:
                         matches_scores[col] = pd.DataFrame([match])
 
