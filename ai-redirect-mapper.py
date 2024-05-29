@@ -120,12 +120,15 @@ def create_page_footer_with_contact_info():
     """
     Adds a footer with contact information to the Streamlit page.
     """
+
+    _ = '''
     footer_html = (
         "<hr style='height:2px;border-width:0;color:gray;background-color:gray'>"
         "<p style='font-style: italic;'>Need an app? Need this run as a managed service? "
         "<a href='mailto:hello@BaileyDoesSEO.com'>Hire Me!</a></p>"
     )
     st.markdown(footer_html, unsafe_allow_html=True)
+    '''
 
 
 def validate_uploaded_files(file1, file2):
