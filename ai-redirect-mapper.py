@@ -690,7 +690,7 @@ def display_final_results_and_download_link(df_final, filename):
     filename (str): The name of the file to be downloaded.
     """
     show_download_link_for_final_excel(df_final, filename)
-    display_median_score_brackets_chart(df_final)
+    # display_median_score_brackets_chart(df_final)
     st.balloons()
 
 ''' REMOVED
@@ -860,7 +860,7 @@ def generate_excel_download_and_display_link(df, filename, score_data):
     """
     excel_writer = create_excel_with_dataframes(df, score_data, filename)
     apply_formatting_to_excel_sheets(excel_writer, df)
-    add_chart_to_excel_sheet(excel_writer, score_data)
+    # add_chart_to_excel_sheet(excel_writer, score_data)
     excel_writer.close()
 
     download_link = create_excel_download_link(filename)
@@ -940,7 +940,7 @@ def main():
     # Advanced settings expander for model selection
     with st.expander("Advanced Settings"):
         # model_options = ['TF-IDF', 'Edit Distance', 'RapidFuzz', 'SBERT & FAISS', 'OpenAI & FAISS']
-        model_options = ['TF-IDF', 'Edit Distance', 'RapidFuzz', 'SBERT & FAISS']
+        model_options = ['TF-IDF', 'SBERT & FAISS']
         selected_model = st.selectbox("Select Matching Model", model_options)
 
         if selected_model == "TF-IDF":
