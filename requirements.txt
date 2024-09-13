@@ -5,3 +5,4 @@ faiss-cpu
 sentence-transformers
 matplotlib==3.8.3
 plotly==5.18.0
+openpyxl
