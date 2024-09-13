@@ -206,7 +206,7 @@ def read_excel_file(file, dtype):
     Returns:
     pd.DataFrame: DataFrame containing the data from the Excel file.
     """
-    return pd.read_excel_file(file, dtype=dtype)
+    return pd.read_excel(file, dtype=dtype)
 
 
 def read_csv_file_with_detected_encoding(file, dtype):
