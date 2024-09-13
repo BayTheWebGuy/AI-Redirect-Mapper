@@ -3,11 +3,9 @@ import chardet
 import numpy as np
 import streamlit as st
 import pandas as pd
-
 from polyfuzz import PolyFuzz
 from polyfuzz.models import TFIDF, EditDistance, RapidFuzz
 import xlsxwriter
-
 from sentence_transformers import SentenceTransformer
 import faiss
 
@@ -160,23 +158,7 @@ def initialise_matching_model(selected_model="TF-IDF"):
         model = TFIDF(min_similarity=0)
     return model
 
-def setup_matching_model(selected_model):
-    if selected_model == "Edit Distance":
-        model = PolyFuzz(EditDistance())
-    elif selected_model == "RapidFuzz":
-        model = PolyFuzz(RapidFuzz())
-    elif selected_model == "SBERT & FAISS":
-        model = "SBERT & FAISS"  # We'll handle this model differently
-    else:
-        model = PolyFuzz(TFIDF())
-    return model
-
-import faiss
-import numpy as np
-import pandas as pd
-
 def get_sbert_embeddings(text_list):
-    from sentence_transformers import SentenceTransformer
     sbert_model = SentenceTransformer('all-MiniLM-L6-v2')
     embeddings = sbert_model.encode(text_list, show_progress_bar=True)
     return embeddings
@@ -190,53 +172,63 @@ def match_columns_and_compute_scores(model, df_live, df_staging, matching_column
             live_list = df_live[col].fillna('').tolist()
             staging_list = df_staging[col].fillna('').tolist()
 
-            if model == "SBERT & FAISS":
+            if model == "SBERT & Cosine Similarity":
                 # Get embeddings
                 live_embeddings = get_sbert_embeddings(live_list)
                 staging_embeddings = get_sbert_embeddings(staging_list)
 
-                # Setup FAISS index for nearest neighbor search
-                dimension = len(live_embeddings[0])
-                faiss_index = faiss.IndexFlatL2(dimension)
-                faiss_index.add(np.array(staging_embeddings).astype('float32'))
+                # Convert embeddings to numpy arrays
+                live_embeddings = np.array(live_embeddings)
+                staging_embeddings = np.array(staging_embeddings)
 
-                # Initialize empty DataFrame for matches
+                # Normalize embeddings
+                live_embeddings_norm = live_embeddings / np.linalg.norm(live_embeddings, axis=1, keepdims=True)
+                staging_embeddings_norm = staging_embeddings / np.linalg.norm(staging_embeddings, axis=1, keepdims=True)
+
+                # Compute cosine similarities
+                cosine_similarities = np.dot(live_embeddings_norm, staging_embeddings_norm.T)
+
+                # For each live embedding, find the staging embedding with the highest similarity
                 matches = pd.DataFrame(columns=['From', 'To', 'Similarity'])
-
-                # Search for nearest neighbors
-                for i_embed, live_embedding in enumerate(live_embeddings):
-                    D, I = faiss_index.search(np.array([live_embedding]).astype('float32'), k=1)
-                    similarity_score = 1 - (D.flatten()[0] / np.max(D))
-
-                    # Create match result
+                for idx in range(len(live_list)):
+                    cos_scores = cosine_similarities[idx]
+                    max_idx = cos_scores.argmax()
+                    max_score = cos_scores[max_idx]
                     match = pd.DataFrame({
-                        'From': [live_list[i_embed]],
-                        'To': [staging_list[I.flatten()[0]]],
-                        'Similarity': [similarity_score]
+                        'From': [live_list[idx]],
+                        'To': [staging_list[max_idx]],
+                        'Similarity': [max_score]
                     })
-
-                    # Append match to matches DataFrame using concat
                     matches = pd.concat([matches, match], ignore_index=True)
 
                 matches_scores[col] = matches
             else:
-                # Fallback to a generic matching model
+                # Use PolyFuzz matching models
                 model.match(live_list, staging_list)
                 matches = model.get_matches()
                 matches_scores[col] = matches
 
+            # Update progress bar
+            progress = (i + 1) / total_columns
+            if progress > 1:
+                progress = 1
+            progress_bar.progress(progress)
         else:
-            print(f"The column '{col}' does not exist in both the live and staging data.")
-
-        # Update progress bar
-        progress = (i + 1) / total_columns
-        if progress > 1:
-            progress = 1
-        progress_bar.progress(progress)
+            st.warning(f"The column '{col}' does not exist in both the live and staging data.")
 
     return matches_scores
 
-
+def setup_matching_model(selected_model):
+    if selected_model == "Edit Distance":
+        model = PolyFuzz(EditDistance())
+    elif selected_model == "RapidFuzz":
+        model = PolyFuzz(RapidFuzz())
+    elif selected_model == "SBERT & Cosine Similarity":
+        model = "SBERT & Cosine Similarity"  # Adjusted model name
+    else:
+        model = PolyFuzz(TFIDF())
+    return model
+    
 def identify_best_matching_url(row, matches_scores, matching_columns, df_staging):
     best_match_info = {'Best Match on': None, 'Highest Matching URL': None,
                        'Highest Similarity Score': 0, 'Best Match Content': None}
@@ -485,12 +477,12 @@ def main():
 
     # Advanced settings expander for model selection
     with st.expander("Advanced Settings"):
-        model_options = ['SBERT & FAISS', 'TF-IDF']
+        model_options = ['SBERT & Cosine Similarity', 'TF-IDF']
         selected_model = st.selectbox("Select Matching Model", model_options)
 
         if selected_model == "TF-IDF":
             st.write("Use TF-IDF for comprehensive text analysis, suitable for high numbers of URLs (10K+) where SBERT may run into resourcing issues.")
-        elif selected_model == "SBERT & FAISS":
+        elif selected_model == "SBERT & Cosine Similarity":
             st.write("Use SBERT for semantic matching of URLs, achieving an extremely high success rate in comparison with any fuzzy matching solutions / TF-IDF.")
             st.write("(Limit input to 1,000 URLs to prevent crashing)")
 
@@ -498,15 +490,13 @@ def main():
     if file_live and file_staging:
         df_live, df_staging = process_and_validate_uploaded_files(file_live, file_staging)
         if df_live is not None and df_staging is not None:
-            address_column, selected_additional_columns = select_columns_for_matching(df_live,
-                                                                                      df_staging)
+            address_column, selected_additional_columns = select_columns_for_matching(df_live, df_staging)
             if st.button("Process Files"):
                 df_final = handle_data_matching_and_processing(df_live, df_staging, address_column,
                                                                selected_additional_columns,
                                                                selected_model)
 
     create_page_footer_with_contact_info()
-
 
 if __name__ == "__main__":
     main()
