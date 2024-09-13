@@ -423,6 +423,8 @@ def match_columns_and_compute_scores(model, df_live, df_staging, matching_column
                     # Update progress bar based on rows processed
                     processed_rows += 1
                     progress_bar.progress(processed_rows / total_rows)
+                    if progress_bar.progress() > 1:
+                        progress_bar.progress(1)
                 
                 matches_scores[col] = matches
             else:
@@ -434,6 +436,8 @@ def match_columns_and_compute_scores(model, df_live, df_staging, matching_column
                 # Update progress bar based on rows processed
                 processed_rows += len(live_list)
                 progress_bar.progress(processed_rows / total_rows)
+                if progress_bar.progress() > 1:
+                        progress_bar.progress(1)
         else:
             print(f"The column '{col}' does not exist in both the live and staging data.")
 
