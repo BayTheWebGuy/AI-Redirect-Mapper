@@ -22,7 +22,7 @@ def setup_streamlit_interface():
     st.markdown(
         """
         <p style="font-style: italic;">
-            Created by BaileyDoesSEO | Inspired by Lee Foot's original <a href="https://leefoot.co.uk/portfolio/automatic-website-migration-streamlit-app/">TF-IDF tool</a>.
+            Embedding Model added by BaileyDoesSEO | Inspired by Lee Foot's original <a href="https://leefoot.co.uk/portfolio/automatic-website-migration-streamlit-app/">TF-IDF tool</a>.
         </p>
         """,
         unsafe_allow_html=True
