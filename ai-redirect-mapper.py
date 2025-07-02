@@ -158,8 +158,9 @@ def initialise_matching_model(selected_model="TF-IDF"):
         model = TFIDF(min_similarity=0)
     return model
 
-def get_sbert_embeddings(text_list):
-    sbert_model = SentenceTransformer('all-MiniLM-L6-v2')
+def get_sbert_embeddings(text_list, multilingual=False):
+    model_name = 'distiluse-base-multilingual-cased-v2' if multilingual else 'all-MiniLM-L6-v2'
+    sbert_model = SentenceTransformer(model_name)
     embeddings = sbert_model.encode(text_list, show_progress_bar=True)
     return embeddings
 
@@ -172,10 +173,11 @@ def match_columns_and_compute_scores(model, df_live, df_staging, matching_column
             live_list = df_live[col].fillna('').tolist()
             staging_list = df_staging[col].fillna('').tolist()
 
-            if model == "SBERT & Cosine Similarity":
-                # Get embeddings
-                live_embeddings = get_sbert_embeddings(live_list)
-                staging_embeddings = get_sbert_embeddings(staging_list)
+                if model == "SBERT & Cosine Similarity":
+                    multilingual = "Multi-Lingual" in selected_model
+                    live_embeddings = get_sbert_embeddings(live_list, multilingual=multilingual)
+                    staging_embeddings = get_sbert_embeddings(staging_list, multilingual=multilingual)
+
 
                 # Convert embeddings to numpy arrays
                 live_embeddings = np.array(live_embeddings)
@@ -477,14 +479,20 @@ def main():
 
     # Advanced settings expander for model selection
     with st.expander("Advanced Settings"):
-        model_options = ['SBERT & Cosine Similarity', 'TF-IDF']
+        model_options = [
+            "Default (All-Mini-LM-v6)",
+            "Multi-Lingual (distiluse-base-multilingual-cased-v2)",
+            "TF-IDF"
+        ]
         selected_model = st.selectbox("Select Matching Model", model_options)
 
         if selected_model == "TF-IDF":
             st.write("Use TF-IDF for comprehensive text analysis, suitable for high numbers of URLs (10K+) where SBERT may run into resourcing issues.")
-        elif selected_model == "SBERT & Cosine Similarity":
-            st.write("Use SBERT for semantic matching of URLs, achieving an extremely high success rate in comparison with any fuzzy matching solutions / TF-IDF.")
-            st.write("(Limit input to 1,000 URLs to prevent crashing)")
+        elif "All-Mini-LM-v6" in selected_model:
+            st.write("Use SBERT for semantic matching of URLs, achieving a high success rate. Limit input to ~1,000 URLs to avoid memory issues.")
+        elif "Multi-Lingual" in selected_model:
+            st.write("Use Multilingual SBERT to compare across languages. Best for international content migrations.")
+
 
     file_live, file_staging = create_file_uploader_widgets()
     if file_live and file_staging:
