@@ -173,10 +173,10 @@ def match_columns_and_compute_scores(model, df_live, df_staging, matching_column
             live_list = df_live[col].fillna('').tolist()
             staging_list = df_staging[col].fillna('').tolist()
 
-                if model == "SBERT & Cosine Similarity":
-                    multilingual = "Multi-Lingual" in selected_model
-                    live_embeddings = get_sbert_embeddings(live_list, multilingual=multilingual)
-                    staging_embeddings = get_sbert_embeddings(staging_list, multilingual=multilingual)
+            if model == "SBERT & Cosine Similarity":
+                multilingual = "Multi-Lingual" in selected_model
+                live_embeddings = get_sbert_embeddings(live_list, multilingual=multilingual)
+                staging_embeddings = get_sbert_embeddings(staging_list, multilingual=multilingual)
 
 
                 # Convert embeddings to numpy arrays
