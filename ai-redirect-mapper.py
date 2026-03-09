@@ -1,5 +1,6 @@
 import base64
 import chardet
+import io
 import numpy as np
 import streamlit as st
 import pandas as pd
@@ -84,8 +85,7 @@ def create_file_uploader_widgets():
     return file_live, file_staging
 
 
-def handle_data_matching_and_processing(df_live, df_staging, address_column, selected_additional_columns,
-                                        selected_model):
+def handle_data_matching_and_processing(df_live, df_staging, address_column, selected_additional_columns, selected_model):
     message_placeholder = st.empty()
     message_placeholder.info('Matching Columns, Please Wait!')
 
@@ -94,9 +94,10 @@ def handle_data_matching_and_processing(df_live, df_staging, address_column, sel
 
     all_selected_columns = ['Address'] + selected_additional_columns
     progress_bar = st.progress(0)
-    df_final = process_uploaded_files_and_match_data(df_live, df_staging, all_selected_columns, progress_bar,
-                                                     message_placeholder,
-                                                     selected_additional_columns, selected_model)
+    df_final = process_uploaded_files_and_match_data(
+        df_live, df_staging, all_selected_columns, progress_bar,
+        message_placeholder, selected_additional_columns, selected_model
+    )
     return df_final
 
 
@@ -144,27 +145,13 @@ def process_and_validate_uploaded_files(file_live, file_staging):
 
 # Data Matching and Analysis -------------------------------------------------------------------------------------------
 
-def initialise_matching_model(selected_model="TF-IDF"):
-    if selected_model == "Edit Distance":
-        from polyfuzz.models import EditDistance
-        model = EditDistance()
-    elif selected_model == "RapidFuzz":
-        from polyfuzz.models import RapidFuzz
-        model = RapidFuzz()
-    elif selected_model == "SBERT & FAISS":
-        model = "SBERT & FAISS"  # We'll handle this model differently
-    else:
-        from polyfuzz.models import TFIDF
-        model = TFIDF(min_similarity=0)
-    return model
-
 def get_sbert_embeddings(text_list, multilingual=False):
     model_name = 'distiluse-base-multilingual-cased-v2' if multilingual else 'all-MiniLM-L6-v2'
     sbert_model = SentenceTransformer(model_name)
     embeddings = sbert_model.encode(text_list, show_progress_bar=True)
     return embeddings
 
-def match_columns_and_compute_scores(model, df_live, df_staging, matching_columns, progress_bar):
+def match_columns_and_compute_scores(model, df_live, df_staging, matching_columns, progress_bar, selected_model):
     matches_scores = {}
     total_columns = len(matching_columns)
 
@@ -177,7 +164,6 @@ def match_columns_and_compute_scores(model, df_live, df_staging, matching_column
                 multilingual = "Multi-Lingual" in selected_model
                 live_embeddings = get_sbert_embeddings(live_list, multilingual=multilingual)
                 staging_embeddings = get_sbert_embeddings(staging_list, multilingual=multilingual)
-
 
                 # Convert embeddings to numpy arrays
                 live_embeddings = np.array(live_embeddings)
@@ -221,15 +207,15 @@ def match_columns_and_compute_scores(model, df_live, df_staging, matching_column
     return matches_scores
 
 def setup_matching_model(selected_model):
-    if selected_model == "Edit Distance":
-        model = PolyFuzz(EditDistance())
+    # Fixed matching logic so UI strings trigger correct model
+    if "All-Mini-LM-v6" in selected_model or "Multi-Lingual" in selected_model:
+        return "SBERT & Cosine Similarity"
+    elif selected_model == "Edit Distance":
+        return PolyFuzz(EditDistance())
     elif selected_model == "RapidFuzz":
-        model = PolyFuzz(RapidFuzz())
-    elif selected_model == "SBERT & Cosine Similarity":
-        model = "SBERT & Cosine Similarity"  # Adjusted model name
+        return PolyFuzz(RapidFuzz())
     else:
-        model = PolyFuzz(TFIDF())
-    return model
+        return PolyFuzz(TFIDF(min_similarity=0))
     
 def identify_best_matching_url(row, matches_scores, matching_columns, df_staging):
     best_match_info = {'Best Match on': None, 'Highest Matching URL': None,
@@ -289,13 +275,12 @@ def finalise_match_results_processing(df_live, df_staging, matches_scores, match
 
 
 def process_uploaded_files_and_match_data(df_live, df_staging, matching_columns, progress_bar, message_placeholder,
-                                          selected_additional_columns,
-                                          selected_model):
+                                          selected_additional_columns, selected_model):
     df_live = convert_dataframe_to_lowercase(df_live)
     df_staging = convert_dataframe_to_lowercase(df_staging)
 
     model = setup_matching_model(selected_model)
-    matches_scores = process_column_matches_and_scores(model, df_live, df_staging, matching_columns, progress_bar)
+    matches_scores = process_column_matches_and_scores(model, df_live, df_staging, matching_columns, progress_bar, selected_model)
 
     message_placeholder.info('Finalising the processing. Please Wait!')
     df_final = finalise_match_results_processing(df_live, df_staging, matches_scores, matching_columns,
@@ -337,10 +322,13 @@ def generate_score_distribution_dataframe(df_final):
 
 def select_columns_for_matching(df_live, df_staging):
     common_columns = list(set(df_live.columns) & set(df_staging.columns))
+    
+    # Check for Address or URL first to set the default
     address_defaults = ['Address', 'URL', 'url', 'Adresse', 'Dirección', 'Indirizzo']
     default_address_column = next((col for col in address_defaults if col in common_columns), common_columns[0])
 
     st.write("Select the column to use as 'Address':")
+    # This renders as a dropdown containing all common columns, defaulting to Address/URL if found
     address_column = st.selectbox("Address Column", common_columns, index=common_columns.index(default_address_column))
 
     additional_columns = [col for col in common_columns if col != address_column]
@@ -348,17 +336,23 @@ def select_columns_for_matching(df_live, df_staging):
     default_selection = [col for col in default_additional_columns if col in additional_columns]
 
     st.write("Select additional columns to match (optional, max 3):")
-    max_additional_columns = min(3, len(additional_columns))
-    # Ensure default selections do not exceed the maximum allowed
-    default_selection = default_selection[:max_additional_columns]
-    selected_additional_columns = st.multiselect("Additional Columns", additional_columns,
-                                                 default=default_selection,
-                                                 max_selections=max_additional_columns)
+    
+    # Fix the 0 selections error
+    if not additional_columns:
+        st.info("No additional columns available to select.")
+        selected_additional_columns = []
+    else:
+        max_additional_columns = max(1, min(3, len(additional_columns)))
+        default_selection = default_selection[:max_additional_columns]
+        selected_additional_columns = st.multiselect("Additional Columns", additional_columns,
+                                                     default=default_selection,
+                                                     max_selections=max_additional_columns)
+        
     return address_column, selected_additional_columns
 
 
-def process_column_matches_and_scores(model, df_live, df_staging, matching_columns, progress_bar):
-    return match_columns_and_compute_scores(model, df_live, df_staging, matching_columns, progress_bar)
+def process_column_matches_and_scores(model, df_live, df_staging, matching_columns, progress_bar, selected_model):
+    return match_columns_and_compute_scores(model, df_live, df_staging, matching_columns, progress_bar, selected_model)
 
 
 # Data Visualization and Reporting -------------------------------------------------------------------------------------
@@ -370,14 +364,14 @@ def display_final_results_and_download_link(df_final, filename):
 
 # Excel File Operations ------------------------------------------------------------------------------------------------
 
-def create_excel_with_dataframes(df, score_data, filename):
-    excel_writer = pd.ExcelWriter(filename, engine='xlsxwriter')
+def generate_excel_download_and_display_link(df, filename, score_data):
+    # Fix for concurrency: use an in-memory buffer instead of saving to disk
+    output = io.BytesIO()
+    excel_writer = pd.ExcelWriter(output, engine='xlsxwriter')
+    
     df.to_excel(excel_writer, sheet_name='Mapped URLs', index=False)
     score_data.to_excel(excel_writer, sheet_name='Median Score Distribution', index=False)
-    return excel_writer
 
-
-def apply_formatting_to_excel_sheets(excel_writer, df):
     workbook = excel_writer.book
     worksheet1 = excel_writer.sheets['Mapped URLs']
 
@@ -392,27 +386,22 @@ def apply_formatting_to_excel_sheets(excel_writer, df):
 
     max_col_width = 80
     for i, col in enumerate(df.columns):
-        col_width = max(len(col), max(df[col].astype(str).apply(len).max(), 10)) + 2
+        col_width = max(len(col), max(df[col].astype(str).apply(len).max() if not df[col].empty else 0, 10)) + 2
         col_width = min(col_width, max_col_width)
 
-        # Apply specific formatting for columns 'E', 'F', and 'H' (indices 4, 5, and 7)
-        if i in [3, 5, 7]:  # Adjusting the indices for columns E, F, and H
+        # Fix for hardcoded Excel formatting: apply conditional formatting based on column name
+        if 'Score' in col or 'Similarity' in col:
             worksheet1.set_column(i, i, col_width, percentage_format)
-            # Apply 3-color scale formatting with specified colors
             worksheet1.conditional_format(1, i, num_rows, i, {
                 'type': '3_color_scale',
                 'min_color': "#f8696b",  # Custom red for lowest values
                 'mid_color': "#ffeb84",  # Custom yellow for middle values
-                'max_color': "#63be7b"  # Custom green for highest values
+                'max_color': "#63be7b"   # Custom green for highest values
             })
         else:
             worksheet1.set_column(i, i, col_width, left_align_format)
 
-    return workbook
-
-
-def add_chart_to_excel_sheet(excel_writer, score_data):
-    workbook = excel_writer.book
+    # Add Chart
     worksheet2 = excel_writer.sheets['Median Score Distribution']
     chart = workbook.add_chart({'type': 'column'})
     max_row = len(score_data) + 1
@@ -428,32 +417,22 @@ def add_chart_to_excel_sheet(excel_writer, score_data):
     chart.set_y_axis({'name': 'URL Count'})
     worksheet2.insert_chart('D2', chart)
 
-
-def create_excel_download_link(filename):
-    with open(filename, 'rb') as file:
-        b64 = base64.b64encode(file.read()).decode()
-    download_link = (
-        f'<a href="data:application/vnd.openxmlformats-officedocument.'
-        f'spreadsheetml.sheet;base64,{b64}" download="{filename}">'
-        f'Click here to download {filename}</a>'
-    )
-    return download_link
-
-
-def generate_excel_download_and_display_link(df, filename, score_data):
-    excel_writer = create_excel_with_dataframes(df, score_data, filename)
-    apply_formatting_to_excel_sheets(excel_writer, df)
     excel_writer.close()
-
-    download_link = create_excel_download_link(filename)
-    st.markdown(download_link, unsafe_allow_html=True)
-
+    
+    # Serve the file securely using Streamlit's native download button
+    output.seek(0)
+    st.download_button(
+        label=f"📥 Download Mapping Data Excel File",
+        data=output,
+        file_name=filename,
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
 
 def show_download_link_for_final_excel(df_final, filename):
     df_for_score_data = df_final.drop(['Median Match Score Scaled', 'Score Bracket'], axis=1, inplace=False,
                                       errors='ignore')
     score_data = generate_score_distribution_dataframe(df_for_score_data)
-    generate_excel_download_and_display_link(df_final, 'migration_mapping_data.xlsx', score_data)
+    generate_excel_download_and_display_link(df_final, filename, score_data)
 
 
 # Main Function and Additional Utilities -------------------------------------------------------------------------------
@@ -492,7 +471,6 @@ def main():
             st.write("Use SBERT for semantic matching of URLs, achieving a high success rate. Limit input to ~1,000 URLs to avoid memory issues.")
         elif "Multi-Lingual" in selected_model:
             st.write("Use Multilingual SBERT to compare across languages. Best for international content migrations.")
-
 
     file_live, file_staging = create_file_uploader_widgets()
     if file_live and file_staging:
